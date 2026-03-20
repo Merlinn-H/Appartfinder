@@ -24,11 +24,11 @@ export function useAnnonces() {
     }
   }, [setAnnonces, setLoading, setError]);
 
-  const rafraichir = useCallback(async () => {
+  const rafraichir = useCallback(async (sources?: string[]) => {
     setLoading(true);
     setError(null);
     try {
-      await axios.post(`${API_URL}/refresh`);
+      await axios.post(`${API_URL}/refresh`, { sources });
       await charger();
     } catch (err) {
       setError('Erreur lors du rafraîchissement');

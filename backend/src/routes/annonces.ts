@@ -25,10 +25,12 @@ router.get('/meta/stats', async (_req: Request, res: Response) => {
 });
 
 // POST /api/annonces/refresh
-router.post('/refresh', async (_req: Request, res: Response) => {
+// Body optionnel : { sources: ['LeBonCoin', 'SeLoger', 'PAP'] }
+router.post('/refresh', async (req: Request, res: Response) => {
   try {
+    const sources: string[] | undefined = req.body?.sources;
     const { rafraichirAnnonces } = await import('../services/scraper');
-    const resultat = await rafraichirAnnonces();
+    const resultat = await rafraichirAnnonces(sources);
     if (resultat.utiliseDemoData) {
       const demoAnnonces = generateMockAnnonces();
       for (const a of demoAnnonces) await upsertAnnonce(a);

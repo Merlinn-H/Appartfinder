@@ -67,18 +67,20 @@ export async function scraperPAP(): Promise<ScrapingResult> {
 
 // ─── Orchestrateur principal ──────────────────────────────────────────────────
 
-export async function rafraichirAnnonces(): Promise<{
+export async function rafraichirAnnonces(sourcesActives?: string[]): Promise<{
   total: number;
   sources: ScrapingResult[];
   utiliseDemoData: boolean;
 }> {
-  console.log('[Scraper] Démarrage du rafraîchissement des annonces...');
+  const actives = sourcesActives ?? ['LeBonCoin', 'SeLoger', 'PAP'];
+  console.log(`[Scraper] Démarrage du rafraîchissement — sources : ${actives.join(', ')}`);
 
-  const resultats = await Promise.allSettled([
-    scraperLeBonCoin(),
-    scraperSeLoger(),
-    scraperPAP(),
-  ]);
+  const taches: Promise<ScrapingResult>[] = [];
+  if (actives.includes('LeBonCoin')) taches.push(scraperLeBonCoin());
+  if (actives.includes('SeLoger'))   taches.push(scraperSeLoger());
+  if (actives.includes('PAP'))       taches.push(scraperPAP());
+
+  const resultats = await Promise.allSettled(taches);
 
   const sources: ScrapingResult[] = resultats.map(r =>
     r.status === 'fulfilled' ? r.value : { annonces: [], source: 'Inconnu', success: false, error: String(r.reason) }

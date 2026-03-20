@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAnnoncesStore } from '../store/annoncesStore';
 import { PreferencesUtilisateur } from '../types';
 import { useAnnonces } from '../hooks/useAnnonces';
@@ -11,16 +11,47 @@ interface Props {
   onPreferences: (p: PreferencesUtilisateur) => void;
 }
 
+const SOURCES_DISPONIBLES = [
+  { id: 'LeBonCoin', label: 'LeBonCoin', icon: '🟠' },
+  { id: 'SeLoger',   label: 'SeLoger',   icon: '🔵' },
+  { id: 'PAP',       label: 'PAP',       icon: '🟢' },
+];
+
 export function Entete({ onglet, onOnglet, nbFavoris, preferences, onPreferences }: Props) {
   const [showPrefs, setShowPrefs] = useState(false);
   const [prefsTemp, setPrefsTemp] = useState(preferences);
+  const [showScraper, setShowScraper] = useState(false);
+  const [sourcesSelectionnees, setSourcesSelectionnees] = useState<string[]>(['LeBonCoin', 'SeLoger', 'PAP']);
+  const scraperRef = useRef<HTMLDivElement>(null);
+
   const { loading, derniereMaj } = useAnnoncesStore();
   const { rafraichir } = useAnnonces();
 
+  // Fermer le popover scraper si clic en dehors
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (scraperRef.current && !scraperRef.current.contains(e.target as Node)) {
+        setShowScraper(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  function toggleSource(id: string) {
+    setSourcesSelectionnees(prev =>
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    );
+  }
+
+  function lancerScraping() {
+    setShowScraper(false);
+    rafraichir(sourcesSelectionnees.length > 0 ? sourcesSelectionnees : undefined);
+  }
+
   function formatMaj(iso: string | null): string {
     if (!iso) return 'Jamais';
-    const d = new Date(iso);
-    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   }
 
   function sauvegarderPrefs() {
@@ -38,11 +69,11 @@ export function Entete({ onglet, onOnglet, nbFavoris, preferences, onPreferences
           <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400 ml-1">– Lyon</span>
         </div>
 
-        {/* Onglets mobiles */}
+        {/* Onglets */}
         <nav className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1">
           {[
-            { id: 'liste', label: 'Liste' },
-            { id: 'carte', label: 'Carte' },
+            { id: 'liste',   label: 'Liste' },
+            { id: 'carte',   label: 'Carte' },
             { id: 'favoris', label: `Favoris${nbFavoris > 0 ? ` (${nbFavoris})` : ''}` },
           ].map((o) => (
             <button
@@ -64,16 +95,86 @@ export function Entete({ onglet, onOnglet, nbFavoris, preferences, onPreferences
           <div className="hidden md:flex items-center gap-1 text-xs text-gray-400">
             <span>Màj : {formatMaj(derniereMaj)}</span>
           </div>
-          <button
-            onClick={rafraichir}
-            disabled={loading}
-            title="Rafraîchir les annonces"
-            className="p-2 rounded-lg text-gray-500 hover:text-lyon-700 hover:bg-lyon-50 dark:hover:bg-lyon-900/20 transition-colors disabled:opacity-50"
-          >
-            <svg className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
+
+          {/* Bouton Rafraîchir + popover sélecteur de sources */}
+          <div className="relative" ref={scraperRef}>
+            <div className="flex items-center rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {/* Bouton principal : lance le scraping */}
+              <button
+                onClick={lancerScraping}
+                disabled={loading || sourcesSelectionnees.length === 0}
+                title="Rafraîchir les annonces"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors border-r border-gray-200 dark:border-gray-700"
+              >
+                <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span className="hidden sm:inline">
+                  {loading ? 'Scraping…' : 'Rafraîchir'}
+                </span>
+              </button>
+
+              {/* Flèche pour ouvrir le sélecteur */}
+              <button
+                onClick={() => setShowScraper(v => !v)}
+                title="Choisir les sources à scraper"
+                className="px-2 py-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <svg className={`w-3.5 h-3.5 transition-transform ${showScraper ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Popover sélecteur de sources */}
+            {showScraper && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 z-50 p-3">
+                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                  Sites à scraper
+                </div>
+                <div className="space-y-1 mb-3">
+                  {SOURCES_DISPONIBLES.map((src) => (
+                    <label
+                      key={src.id}
+                      className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={sourcesSelectionnees.includes(src.id)}
+                        onChange={() => toggleSource(src.id)}
+                        className="rounded accent-lyon-700"
+                      />
+                      <span className="text-sm">{src.icon}</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{src.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="pt-2 border-t border-gray-100 dark:border-gray-700 flex gap-2">
+                  <button
+                    onClick={() => setSourcesSelectionnees(SOURCES_DISPONIBLES.map(s => s.id))}
+                    className="flex-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  >
+                    Tout
+                  </button>
+                  <button
+                    onClick={() => setSourcesSelectionnees([])}
+                    className="flex-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  >
+                    Aucun
+                  </button>
+                  <button
+                    onClick={lancerScraping}
+                    disabled={sourcesSelectionnees.length === 0 || loading}
+                    className="flex-1 px-2 py-1 text-xs bg-lyon-800 text-white rounded-md hover:bg-lyon-900 disabled:opacity-50 transition-colors"
+                  >
+                    Lancer
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Préférences */}
           <button
             onClick={() => { setPrefsTemp(preferences); setShowPrefs(true); }}
             title="Préférences"
