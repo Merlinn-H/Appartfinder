@@ -1,22 +1,38 @@
-import Database from 'better-sqlite3';
+import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
+import fs from 'fs';
 import path from 'path';
 import { Annonce } from '../types';
 
 const DB_PATH = path.join(process.cwd(), 'appartfinder.db');
 
-let db: Database.Database;
+let db: Database | null = null;
+let SQL: SqlJsStatic | null = null;
 
-export function getDb(): Database.Database {
-  if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    initSchema();
+// Sauvegarde la DB sur disque (sql.js travaille en mémoire)
+function sauvegarder(): void {
+  if (!db) return;
+  const data = db.export();
+  fs.writeFileSync(DB_PATH, Buffer.from(data));
+}
+
+export async function getDb(): Promise<Database> {
+  if (db) return db;
+
+  SQL = await initSqlJs();
+
+  if (fs.existsSync(DB_PATH)) {
+    const fileBuffer = fs.readFileSync(DB_PATH);
+    db = new SQL.Database(fileBuffer);
+  } else {
+    db = new SQL.Database();
   }
+
+  initSchema();
   return db;
 }
 
 function initSchema(): void {
-  getDb().exec(`
+  db!.run(`
     CREATE TABLE IF NOT EXISTS annonces (
       id TEXT PRIMARY KEY,
       titre TEXT NOT NULL,
@@ -28,7 +44,7 @@ function initSchema(): void {
       arrondissement TEXT,
       adresse_approx TEXT,
       description TEXT,
-      photos TEXT,          -- JSON array of URLs
+      photos TEXT,
       date_publication TEXT NOT NULL,
       type TEXT NOT NULL,
       lien_source TEXT NOT NULL,
@@ -38,63 +54,67 @@ function initSchema(): void {
       lng REAL,
       source TEXT NOT NULL,
       id_source TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
-
-    CREATE INDEX IF NOT EXISTS idx_annonces_source ON annonces(source);
-    CREATE INDEX IF NOT EXISTS idx_annonces_type ON annonces(type);
-    CREATE INDEX IF NOT EXISTS idx_annonces_prix ON annonces(prix);
-    CREATE INDEX IF NOT EXISTS idx_annonces_date ON annonces(date_publication);
+    CREATE INDEX IF NOT EXISTS idx_prix ON annonces(prix);
+    CREATE INDEX IF NOT EXISTS idx_date ON annonces(date_publication);
+    CREATE INDEX IF NOT EXISTS idx_source ON annonces(source);
   `);
+  sauvegarder();
 }
 
-export function upsertAnnonce(annonce: Annonce): void {
-  const stmt = getDb().prepare(`
-    INSERT INTO annonces (
+export async function upsertAnnonce(annonce: Annonce): Promise<void> {
+  const d = await getDb();
+  d.run(
+    `INSERT INTO annonces (
       id, titre, prix, prix_hc, surface, nb_pieces, quartier, arrondissement,
       adresse_approx, description, photos, date_publication, type, lien_source,
       contact_email, contact_formulaire, lat, lng, source, id_source, updated_at
-    ) VALUES (
-      @id, @titre, @prix, @prix_hc, @surface, @nb_pieces, @quartier, @arrondissement,
-      @adresse_approx, @description, @photos, @date_publication, @type, @lien_source,
-      @contact_email, @contact_formulaire, @lat, @lng, @source, @id_source, datetime('now')
-    )
-    ON CONFLICT(id) DO UPDATE SET
-      prix = excluded.prix,
-      photos = excluded.photos,
-      updated_at = datetime('now')
-  `);
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET prix=excluded.prix, photos=excluded.photos, updated_at=datetime('now')`,
+    [
+      annonce.id, annonce.titre, annonce.prix, annonce.prix_hc ?? null,
+      annonce.surface, annonce.nb_pieces, annonce.quartier, annonce.arrondissement ?? null,
+      annonce.adresse_approx, annonce.description, JSON.stringify(annonce.photos),
+      annonce.date_publication, annonce.type, annonce.lien_source,
+      annonce.contact_email ?? null, annonce.contact_formulaire ?? null,
+      annonce.lat ?? null, annonce.lng ?? null, annonce.source, annonce.id_source ?? null,
+    ]
+  );
+  sauvegarder();
+}
 
-  stmt.run({
-    ...annonce,
-    photos: JSON.stringify(annonce.photos),
+export async function getAllAnnonces(): Promise<Annonce[]> {
+  const d = await getDb();
+  const result = d.exec('SELECT * FROM annonces ORDER BY date_publication DESC');
+  if (!result.length) return [];
+  return rowsToAnnonces(result[0]);
+}
+
+export async function getAnnonceById(id: string): Promise<Annonce | null> {
+  const d = await getDb();
+  const result = d.exec('SELECT * FROM annonces WHERE id = ?', [id]);
+  if (!result.length || !result[0].values.length) return null;
+  return rowsToAnnonces(result[0])[0];
+}
+
+export async function countAnnonces(): Promise<number> {
+  const d = await getDb();
+  const result = d.exec('SELECT COUNT(*) FROM annonces');
+  return result[0]?.values[0][0] as number ?? 0;
+}
+
+export async function getLastUpdate(): Promise<string | null> {
+  const d = await getDb();
+  const result = d.exec('SELECT MAX(updated_at) FROM annonces');
+  return result[0]?.values[0][0] as string ?? null;
+}
+
+function rowsToAnnonces(result: { columns: string[]; values: any[][] }): Annonce[] {
+  return result.values.map((row) => {
+    const obj: any = {};
+    result.columns.forEach((col, i) => { obj[col] = row[i]; });
+    obj.photos = JSON.parse(obj.photos || '[]');
+    return obj as Annonce;
   });
-}
-
-export function getAllAnnonces(): Annonce[] {
-  const rows = getDb().prepare('SELECT * FROM annonces ORDER BY date_publication DESC').all() as any[];
-  return rows.map(rowToAnnonce);
-}
-
-export function getAnnonceById(id: string): Annonce | null {
-  const row = getDb().prepare('SELECT * FROM annonces WHERE id = ?').get(id) as any;
-  return row ? rowToAnnonce(row) : null;
-}
-
-export function countAnnonces(): number {
-  const result = getDb().prepare('SELECT COUNT(*) as count FROM annonces').get() as { count: number };
-  return result.count;
-}
-
-export function getLastUpdate(): string | null {
-  const result = getDb().prepare('SELECT MAX(updated_at) as last FROM annonces').get() as { last: string | null };
-  return result.last;
-}
-
-function rowToAnnonce(row: any): Annonce {
-  return {
-    ...row,
-    photos: JSON.parse(row.photos || '[]'),
-  };
 }
