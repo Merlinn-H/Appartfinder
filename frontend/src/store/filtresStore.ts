@@ -8,7 +8,7 @@ const FILTRES_DEFAUT: Filtres = {
   nb_pieces_min: 1,
   types: ['location_vide', 'meublee', 'colocation'],
   arrondissements: [],
-  sources: ['LeBonCoin', 'SeLoger', 'PAP', 'Demo'],
+  sources: ['LeBonCoin', 'SeLoger', 'PAP', 'LogicImmo', 'BienIci', 'ParuVendu', 'Roomlala', 'Demo'],
   periode: 'tout',
   tri: 'date',
   recherche: '',

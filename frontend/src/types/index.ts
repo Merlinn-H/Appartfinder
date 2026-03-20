@@ -1,5 +1,5 @@
 export type TypeBien = 'location_vide' | 'meublee' | 'colocation';
-export type SourceAnnonce = 'LeBonCoin' | 'SeLoger' | 'PAP' | 'Demo';
+export type SourceAnnonce = 'LeBonCoin' | 'SeLoger' | 'PAP' | 'LogicImmo' | 'BienIci' | 'ParuVendu' | 'Roomlala' | 'Demo';
 export type TriAnnonce = 'prix_asc' | 'prix_desc' | 'surface' | 'date';
 export type PeriodeAnnonce = 'aujourd_hui' | '3_jours' | 'semaine' | 'tout';
 

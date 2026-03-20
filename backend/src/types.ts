@@ -1,5 +1,5 @@
 export type TypeBien = 'location_vide' | 'meublee' | 'colocation';
-export type SourceAnnonce = 'LeBonCoin' | 'SeLoger' | 'PAP' | 'Demo';
+export type SourceAnnonce = 'LeBonCoin' | 'SeLoger' | 'PAP' | 'LogicImmo' | 'BienIci' | 'ParuVendu' | 'Roomlala' | 'Demo';
 
 export interface Annonce {
   id: string;

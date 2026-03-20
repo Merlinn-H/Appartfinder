@@ -12,16 +12,22 @@ interface Props {
 }
 
 const SOURCES_DISPONIBLES = [
-  { id: 'LeBonCoin', label: 'LeBonCoin', icon: '🟠' },
-  { id: 'SeLoger',   label: 'SeLoger',   icon: '🔵' },
-  { id: 'PAP',       label: 'PAP',       icon: '🟢' },
+  { id: 'LeBonCoin', label: 'LeBonCoin',  icon: '🟠', desc: 'Location + colocation' },
+  { id: 'SeLoger',   label: 'SeLoger',    icon: '🔵', desc: 'Agences + particuliers' },
+  { id: 'PAP',       label: 'PAP',        icon: '🟢', desc: 'Particulier à particulier' },
+  { id: 'LogicImmo', label: 'Logic-Immo', icon: '🟣', desc: 'Portail agences' },
+  { id: 'BienIci',   label: "Bien'ici",   icon: '🔴', desc: 'Multi-sources' },
+  { id: 'ParuVendu', label: 'ParuVendu',  icon: '🟡', desc: 'Particuliers' },
+  { id: 'Roomlala',  label: 'Roomlala',   icon: '🏠', desc: 'Colocation / chambre' },
 ];
 
 export function Entete({ onglet, onOnglet, nbFavoris, preferences, onPreferences }: Props) {
   const [showPrefs, setShowPrefs] = useState(false);
   const [prefsTemp, setPrefsTemp] = useState(preferences);
   const [showScraper, setShowScraper] = useState(false);
-  const [sourcesSelectionnees, setSourcesSelectionnees] = useState<string[]>(['LeBonCoin', 'SeLoger', 'PAP']);
+  const [sourcesSelectionnees, setSourcesSelectionnees] = useState<string[]>(
+    SOURCES_DISPONIBLES.map(s => s.id)
+  );
   const scraperRef = useRef<HTMLDivElement>(null);
 
   const { loading, derniereMaj } = useAnnoncesStore();
@@ -132,7 +138,7 @@ export function Entete({ onglet, onOnglet, nbFavoris, preferences, onPreferences
                 <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                   Sites à scraper
                 </div>
-                <div className="space-y-1 mb-3">
+                <div className="space-y-0.5 mb-3">
                   {SOURCES_DISPONIBLES.map((src) => (
                     <label
                       key={src.id}
@@ -142,10 +148,13 @@ export function Entete({ onglet, onOnglet, nbFavoris, preferences, onPreferences
                         type="checkbox"
                         checked={sourcesSelectionnees.includes(src.id)}
                         onChange={() => toggleSource(src.id)}
-                        className="rounded accent-lyon-700"
+                        className="rounded accent-lyon-700 flex-shrink-0"
                       />
-                      <span className="text-sm">{src.icon}</span>
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{src.label}</span>
+                      <span className="text-sm flex-shrink-0">{src.icon}</span>
+                      <div className="min-w-0">
+                        <div className="text-sm text-gray-700 dark:text-gray-300 font-medium leading-tight">{src.label}</div>
+                        <div className="text-xs text-gray-400 leading-tight">{src.desc}</div>
+                      </div>
                     </label>
                   ))}
                 </div>

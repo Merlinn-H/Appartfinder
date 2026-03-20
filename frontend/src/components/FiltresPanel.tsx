@@ -2,7 +2,7 @@ import React from 'react';
 import { useFiltresStore } from '../store/filtresStore';
 import { ARRONDISSEMENTS, TYPE_LABELS, TypeBien, SourceAnnonce } from '../types';
 
-const SOURCES: SourceAnnonce[] = ['LeBonCoin', 'SeLoger', 'PAP', 'Demo'];
+const SOURCES: SourceAnnonce[] = ['LeBonCoin', 'SeLoger', 'PAP', 'LogicImmo', 'BienIci', 'ParuVendu', 'Roomlala', 'Demo'];
 
 interface Props {
   nbResultats: number;
